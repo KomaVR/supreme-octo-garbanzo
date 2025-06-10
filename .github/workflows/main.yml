@@ -1,14 +1,22 @@
 name: Build & Deploy
 
+# Grant the minimum permissions needed
+permissions:
+  contents: read        # for checkout
+  packages: write       # to push to GHCR
+
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Check out code
+        uses: actions/checkout@v3
 
       - name: Set up QEMU (for multi-arch, optional)
         uses: docker/setup-qemu-action@v2
@@ -29,11 +37,13 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/pyarmor-web:latest
+          # Dynamically use your owner and repo name (all lowercase)
+          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+
     steps:
       - name: SSH & Deploy
         uses: appleboy/ssh-action@v0.1.7
@@ -42,10 +52,10 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-              IMAGE="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest"
-              docker pull "$IMAGE"
-              docker rm -f pyarmor-web || true
-              docker run -d \
-                --name pyarmor-web \
-                -p 80:5000 \
-                "$IMAGE"
+            IMAGE="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest"
+            docker pull "$IMAGE"
+            docker rm -f pyarmor-web || true
+            docker run -d \
+              --name pyarmor-web \
+              -p 80:5000 \
+              "$IMAGE"
